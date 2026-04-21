@@ -1,0 +1,21 @@
+{
+  "name": "hamming-slack-bot",
+  "version": "1.0.0",
+  "description": "Slack bot for Hamming.ai — run voice & chat agent tests right from Slack",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "@slack/bolt": "^3.17.1",
+    "dotenv": "^16.3.1",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

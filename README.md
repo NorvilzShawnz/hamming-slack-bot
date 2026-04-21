@@ -1,0 +1,213 @@
+# 🔨 Hamming.ai Slack Bot
+
+A Slack bot that brings Hamming.ai's voice agent testing into Slack. Trigger outbound and inbound test runs, poll status, and view scored results (guardrails, latency, top issues) without leaving the channel.
+
+---
+
+## Commands
+
+Each selection token in a run command is either a `testCaseId` or `tag:<tagId>` (a tag runs every case attached to it). Comma-separate multiple tokens with **no spaces**.
+
+| Command | Description |
+|---|---|
+| `/hamming-help` | Show all available commands with usage and examples |
+| `/hamming-run-outbound <agentId> <selection[,selection,...]> [--samples=N] [--concurrency=N]` | Start an outbound test. Hamming returns temporary numbers your agent must dial before expiry. |
+| `/hamming-run-inbound <agentId> <selection[,selection,...]> <phoneNumber[,phoneNumber,...]> [--samples=N] [--concurrency=N]` | Start an inbound test. Hamming dials the phone number(s) attached to your agent. |
+| `/hamming-status <testRunId>` | Quick status card: state, timestamps, pass/fail counts |
+| `/hamming-results <testRunId>` | Full breakdown: per-case outcome + failed-check reasons, latency metrics, guardrail categories, top issues |
+| `/hamming-agents` | List voice agents in your workspace (with phone numbers used by inbound) |
+| `/hamming-tags <agentId>` | List tags attached to an agent, with per-tag case counts. Best way to pick a tag ID for a run. |
+| `/hamming-datasets` | List individual test cases (useful for single-case runs) |
+
+**Optional load-test flags**, usable on either run command:
+- `--samples=N` — run each case N times (1–50)
+- `--concurrency=N` — cap simultaneous calls (1–100, default 10)
+
+Total runs = `selections × samples × phoneNumbers`.
+
+---
+
+## Setup
+
+### 1. Prerequisites
+
+- Node.js 18+
+- A [Hamming.ai](https://app.hamming.ai) account with an API key
+- A Slack workspace where you can install apps
+
+---
+
+### 2. Create the Slack App
+
+1. Go to [https://api.slack.com/apps](https://api.slack.com/apps) and click **Create New App** → **From Scratch**.
+2. Name it `Hamming Bot` and select your workspace.
+
+#### Enable Socket Mode (recommended for local/dev)
+- Go to **Socket Mode** in the left sidebar → Toggle it **On**.
+- Create an **App-Level Token** with `connections:write` scope. Copy it — this is your `SLACK_APP_TOKEN`.
+
+#### Add Bot Scopes
+Go to **OAuth & Permissions** → **Scopes** → **Bot Token Scopes**, and add:
+- `commands`
+- `chat:write`
+- `chat:write.public`
+
+#### Register Slash Commands
+Go to **Slash Commands** → **Create New Command** for each of the following:
+
+| Command | Description |
+|---|---|
+| `/hamming-help` | Show help |
+| `/hamming-run-outbound` | Start an outbound voice test |
+| `/hamming-run-inbound` | Start an inbound voice test |
+| `/hamming-status` | Check test run status |
+| `/hamming-results` | Get detailed test run results |
+| `/hamming-agents` | List voice agents |
+| `/hamming-tags` | List tags attached to an agent |
+| `/hamming-datasets` | List test cases |
+
+> **Socket Mode tip:** In Socket Mode, the Request URL fields are not used — leave them blank or use a placeholder like `https://example.com`.
+
+#### Install the App
+Go to **Install App** → **Install to Workspace**. Copy the **Bot User OAuth Token** — this is your `SLACK_BOT_TOKEN`.
+
+---
+
+### 3. Get Your Keys
+
+**Slack:**
+- `SLACK_BOT_TOKEN` → OAuth & Permissions → Bot User OAuth Token
+- `SLACK_SIGNING_SECRET` → Basic Information → App Credentials → Signing Secret
+- `SLACK_APP_TOKEN` → Basic Information → App-Level Tokens (Socket Mode only)
+
+**Hamming:**
+- `HAMMING_API_KEY` → [https://app.hamming.ai/settings](https://app.hamming.ai/settings) → Create new secret key
+
+---
+
+### 4. Install & Run
+
+```bash
+# Clone / unzip the project
+cd hamming-slack-bot
+
+# Install dependencies
+npm install
+
+# Copy and fill in your credentials
+cp .env.example .env
+# Edit .env with your actual keys
+
+# Start the bot
+npm start
+
+# Or for development with auto-reload:
+npm run dev
+```
+
+You should see:
+```
+⚡️ Hamming Slack Bot is running on port 3000
+```
+
+---
+
+### 5. Deploy to Production
+
+For a persistent deployment, you can use any Node.js host. Two simple options:
+
+**Railway (easiest):**
+```bash
+# Install Railway CLI
+npm i -g @railway/cli
+railway login
+railway init
+railway up
+# Then set environment variables in the Railway dashboard
+```
+
+**Render:**
+- Connect your GitHub repo, set it as a Web Service, add environment variables, and deploy.
+
+**Docker:**
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY src ./src
+CMD ["node", "src/index.js"]
+```
+
+---
+
+## Usage Examples
+
+```
+# List the agents you have access to
+/hamming-agents
+
+# List the tags attached to a specific agent (with case counts per tag)
+/hamming-tags cmo1ws1vc2gwv0tbnrug12dwm
+
+# Outbound: Hamming returns temporary number(s) your agent must dial before expiry
+/hamming-run-outbound cmo1ws1vc2gwv0tbnrug12dwm cmo1x8fg61lhu0tdh3p1d1gsn
+
+# Outbound using a tag — runs every case attached to that tag in one shot
+/hamming-run-outbound cmo1ws1vc2gwv0tbnrug12dwm tag:cmguyd80z0fokgc1c859g08q7
+
+# Inbound: Hamming dials the phone number attached to your agent
+/hamming-run-inbound cmo1ws1vc2gwv0tbnrug12dwm tag:cmguyd80z0fokgc1c859g08q7 +18154291152
+
+# Load test: run each case 10 times with 25 concurrent calls
+/hamming-run-outbound cmo1ws1vc2gwv0tbnrug12dwm tag:cmguyd80z0fokgc1c859g08q7 --samples=10 --concurrency=25
+
+# Check status / pull results
+/hamming-status cmo367rl908xi0tg9jp7e8e0u
+/hamming-results cmo367rl908xi0tg9jp7e8e0u
+```
+
+---
+
+## Project Structure
+
+```
+hamming-slack-bot/
+├── src/
+│   ├── index.js       # Slack app, command handlers, action handlers
+│   ├── hamming.js     # Hamming REST API client
+│   └── formatters.js  # Block Kit message formatters
+├── .env.example       # Environment variable template
+├── package.json
+└── README.md
+```
+
+---
+
+## Notes on Hamming API
+
+The bot uses Hamming's public REST API (`https://app.hamming.ai/api/rest`). Endpoints wired up:
+
+- `POST /test-runs/test-outbound-agent` — Start an outbound test; response includes `testRunId`, `expiresAt`, and `assignedNumbers` your agent must dial before expiry
+- `POST /test-runs/test-inbound-agent` — Start an inbound test; Hamming dials the `phoneNumbers` you provide
+- `GET /test-runs/{id}/status` — Poll status (QUEUED / RUNNING / COMPLETED / FAILED)
+- `GET /test-runs/{id}/results` — Fetch full results including per-case `assertionResults` with failure reasons, `summary.metrics` (latency percentiles, TTFW, talk ratio, etc.), `summary.assertions.categories` (guardrail breakdown), and `summary.topIssues`
+- `GET /agents` — List voice agents
+- `GET /agents/{id}/test-tags` — List tags attached to a specific agent with a `testCaseCount` per tag
+- `GET /test-cases` — List test cases (each includes its `tags[]` array with tag IDs)
+
+Both run endpoints accept `testConfigurations[]` where each item selects by either `testCaseId` or `tagId`. Optional load-test parameters are `samplingCount` (1–50) and `maxConcurrentCalls` (1–100, default 10).
+
+---
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `HAMMING_API_KEY is not set` | Check your `.env` file |
+| `Hamming API error (401)` | Your API key is wrong or expired — regenerate at hamming.ai/settings |
+| `Hamming API error (404)` | The `agentId`, `testCaseId`, `tagId`, or `testRunId` doesn't exist |
+| Outbound test completes after 60 min with no calls placed | Your agent never dialed the `assignedNumbers` before they expired (~10 min). The "Test Run Started!" card lists the numbers and expiry — your agent has to place those calls. |
+| Slash commands not appearing | Make sure all commands are registered in api.slack.com and the app is reinstalled |
+| Each slash command appears twice in autocomplete | Check **Slash Commands** in api.slack.com for duplicate entries, and check that only one copy of the app is installed in your workspace |
+| `dispatch_failed` in Slack | The bot server isn't running — check the terminal where `npm start` was launched |
