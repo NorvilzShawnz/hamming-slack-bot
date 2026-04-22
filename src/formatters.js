@@ -270,12 +270,35 @@ function formatTestCases(testCases) {
   ];
 }
 
-function formatAgents(agents) {
-  if (!agents || agents.length === 0) {
+function formatAgents(agents, searchQuery = "") {
+  const all = Array.isArray(agents) ? agents : [];
+  if (all.length === 0) {
     return [{ type: "section", text: { type: "mrkdwn", text: "_No voice agents found in your workspace._" } }];
   }
 
-  const rows = agents.slice(0, 45).map((agent) => {
+  const q = (searchQuery || "").trim().toLowerCase();
+  const filtered = q
+    ? all.filter((a) => {
+        const name = (a.name || "").toLowerCase();
+        const id = (a.id || "").toLowerCase();
+        return name.includes(q) || id.includes(q);
+      })
+    : all;
+
+  if (filtered.length === 0) {
+    return [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `_No agents matched_ \`${searchQuery}\`. _Try a different term, or run_ \`/hamming-agents\` _to browse all ${all.length}._`,
+        },
+      },
+    ];
+  }
+
+  const DISPLAY = 45;
+  const rows = filtered.slice(0, DISPLAY).map((agent) => {
     const phones = Array.isArray(agent.phoneNumbers) && agent.phoneNumbers.length
       ? agent.phoneNumbers.map((p) => p.number || p.phoneNumber || p).join(", ")
       : null;
@@ -293,11 +316,32 @@ function formatAgents(agents) {
     };
   });
 
-  return [
-    { type: "header", text: { type: "plain_text", text: "🤖 Your Voice Agents" } },
+  const hasQuery = q.length > 0;
+  const header = hasQuery ? `🤖 Voice Agents — matching "${searchQuery}"` : "🤖 Your Voice Agents";
+  const countLine = hasQuery
+    ? `${filtered.length} match${filtered.length === 1 ? "" : "es"} of ${all.length} total`
+    : `${all.length} agent${all.length === 1 ? "" : "s"} total`;
+
+  const blocks = [
+    { type: "header", text: { type: "plain_text", text: header } },
+    { type: "context", elements: [{ type: "mrkdwn", text: countLine }] },
     divider(),
     ...rows,
   ];
+
+  if (filtered.length > DISPLAY) {
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `_Showing ${DISPLAY} of ${filtered.length}. Narrow the list with_ \`/hamming-agents <searchTerm>\`.`,
+        },
+      ],
+    });
+  }
+
+  return blocks;
 }
 
 function formatAgentTags(tags, agentId) {
@@ -329,10 +373,75 @@ function formatAgentTags(tags, agentId) {
   ];
 }
 
+function formatWorkspaceTags(tags, { searchTerm = "" } = {}) {
+  const all = Array.isArray(tags) ? tags : [];
+  if (all.length === 0) {
+    return [{ type: "section", text: { type: "mrkdwn", text: "_No tags found in this workspace._" } }];
+  }
+
+  const q = (searchTerm || "").trim().toLowerCase();
+  const filtered = q
+    ? all.filter((t) => (t.name || "").toLowerCase().includes(q))
+    : all;
+
+  if (filtered.length === 0) {
+    return [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `_No tag names matched_ \`${searchTerm}\`. _Try a different term, or run_ \`/hamming-tags\` _to browse all ${all.length}._`,
+        },
+      },
+    ];
+  }
+
+  const sorted = [...filtered].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  const DISPLAY = 45;
+  const rows = sorted.slice(0, DISPLAY).map((t) => {
+    const count = t.testCaseCount != null ? `${t.testCaseCount} case${t.testCaseCount === 1 ? "" : "s"}` : "? cases";
+    const desc = t.description ? `\n_${t.description}_` : "";
+    return {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `🏷 *${t.name}* — ${count}\n\`${t.id}\`${desc}`,
+      },
+    };
+  });
+
+  const header = q ? `🏷 Workspace Tags — name contains "${searchTerm}"` : "🏷 Workspace Tags";
+  const countLine = q
+    ? `${filtered.length} match${filtered.length === 1 ? "" : "es"} of ${all.length} total`
+    : `${all.length} tag${all.length === 1 ? "" : "s"} total`;
+
+  const blocks = [
+    { type: "header", text: { type: "plain_text", text: header } },
+    { type: "context", elements: [{ type: "mrkdwn", text: countLine }] },
+    divider(),
+    ...rows,
+  ];
+
+  if (filtered.length > DISPLAY) {
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `_Showing ${DISPLAY} of ${filtered.length}. Narrow further with_ \`/hamming-tags --search=<term>\`.`,
+        },
+      ],
+    });
+  }
+
+  return blocks;
+}
+
 module.exports = {
   formatTestRunStatus,
   formatTestRunResults,
   formatTestCases,
   formatAgents,
   formatAgentTags,
+  formatWorkspaceTags,
 };

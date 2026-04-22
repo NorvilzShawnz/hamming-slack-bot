@@ -80,6 +80,16 @@ async function listAgentTags(agentId) {
   return request("GET", `/agents/${agentId}/test-tags`);
 }
 
+// GET /test-tags  (workspace-wide; supports search, agentId, includeTestCaseCount)
+async function listWorkspaceTags({ search, agentId, includeTestCaseCount = true } = {}) {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (agentId) params.set("agentId", agentId);
+  if (includeTestCaseCount) params.set("includeTestCaseCount", "true");
+  const qs = params.toString();
+  return request("GET", `/test-tags${qs ? `?${qs}` : ""}`);
+}
+
 // GET /test-cases  (path inferred from data-retrieval tool name `list_test_cases`)
 async function listTestCases() {
   return request("GET", `/test-cases`);
@@ -92,5 +102,6 @@ module.exports = {
   getTestRunResults,
   listAgents,
   listAgentTags,
+  listWorkspaceTags,
   listTestCases,
 };

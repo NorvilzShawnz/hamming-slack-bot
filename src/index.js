@@ -8,6 +8,7 @@ const {
   formatTestCases,
   formatAgents,
   formatAgentTags,
+  formatWorkspaceTags,
 } = require("./formatters");
 
 const app = new App({
@@ -104,9 +105,12 @@ app.command("/hamming-help", async ({ ack, respond }) => {
           type: "mrkdwn",
           text:
             "*📚 Find IDs*\n" +
-            "`/hamming-agents` — List your voice agents (with phone numbers for inbound).\n" +
-            "`/hamming-tags <agentId>` — List tags attached to an agent, with case counts. Best way to pick a tag.\n" +
-            "  _Example:_ `/hamming-tags cmo1ws1vc2gwv0tbnrug12dwm`\n" +
+            "`/hamming-agents [searchTerm]` — List your voice agents. Optional search filters by name/ID.\n" +
+            "  _Example:_ `/hamming-agents mary`  →  only agents whose name contains \"mary\"\n\n" +
+            "`/hamming-tags` — List *all* workspace tags with case counts (doesn't need an agent ID).\n" +
+            "`/hamming-tags --search=<term>` — Search workspace tags.\n" +
+            "`/hamming-tags <agentId>` — List only the tags attached to one agent.\n" +
+            "  _Example:_ `/hamming-tags cmo1ws1vc2gwv0tbnrug12dwm`\n\n" +
             "`/hamming-datasets` — List individual test cases (useful if you want single-case IDs).\n" +
             "`/hamming-help` — Show this help.",
         },
@@ -344,13 +348,14 @@ app.command("/hamming-datasets", async ({ ack, respond }) => {
   }
 });
 
-app.command("/hamming-agents", async ({ ack, respond }) => {
+app.command("/hamming-agents", async ({ command, ack, respond }) => {
   await ack();
+  const searchQuery = (command.text || "").trim();
   try {
     const data = await hammingClient.listAgents();
     await respond({
       response_type: "ephemeral",
-      blocks: formatAgents(data.agents || []),
+      blocks: formatAgents(data.agents || [], searchQuery),
     });
   } catch (err) {
     await respond({ response_type: "ephemeral", text: `❌ Error: ${err.message}` });
@@ -359,18 +364,24 @@ app.command("/hamming-agents", async ({ ack, respond }) => {
 
 app.command("/hamming-tags", async ({ command, ack, respond }) => {
   await ack();
-  const agentId = command.text.trim();
-  if (!agentId) {
+  const rawParts = (command.text || "").trim().split(/\s+/).filter(Boolean);
+  const { remaining: parts, flags } = extractFlags(rawParts);
+  const agentId = parts[0];
+  const searchTerm = flags.search;
+
+  try {
+    if (agentId && !searchTerm) {
+      const data = await hammingClient.listAgentTags(agentId);
+      return respond({
+        response_type: "ephemeral",
+        blocks: formatAgentTags(data.tags || [], agentId),
+      });
+    }
+
+    const data = await hammingClient.listWorkspaceTags({ agentId });
     return respond({
       response_type: "ephemeral",
-      text: "⚠️ Usage: `/hamming-tags <agentId>`\nExample: `/hamming-tags cmo1ws1vc2gwv0tbnrug12dwm`",
-    });
-  }
-  try {
-    const data = await hammingClient.listAgentTags(agentId);
-    await respond({
-      response_type: "ephemeral",
-      blocks: formatAgentTags(data.tags || [], agentId),
+      blocks: formatWorkspaceTags(data.tags || [], { searchTerm: searchTerm || "" }),
     });
   } catch (err) {
     await respond({ response_type: "ephemeral", text: `❌ Error: ${err.message}` });
