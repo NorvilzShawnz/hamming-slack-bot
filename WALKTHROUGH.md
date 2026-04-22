@@ -36,7 +36,7 @@ All workspace tags, no filter. Good for first-time browsing to see what's availa
 
 Only the tags attached to one specific agent. Useful once you already know the agent.
 
-Prefer tags over single cases. Only use `/hamming-datasets` if you need a single case ID.
+Prefer tags over single cases. If you do need a single case ID, `/hamming-datasets --search=<term>` searches test cases by name (multi-word phrases supported), and bare `/hamming-datasets` shows the workspace total.
 
 If the agent has no tags yet, create one in Hamming.ai, fill it with the cases you want to run, and attach the agent to it. From then on, running tests in Slack is one command.
 

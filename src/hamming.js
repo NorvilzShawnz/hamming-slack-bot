@@ -90,9 +90,15 @@ async function listWorkspaceTags({ search, agentId, includeTestCaseCount = true 
   return request("GET", `/test-tags${qs ? `?${qs}` : ""}`);
 }
 
-// GET /test-cases  (path inferred from data-retrieval tool name `list_test_cases`)
-async function listTestCases() {
-  return request("GET", `/test-cases`);
+// GET /test-cases  (supports search, limit, offset)
+// Hamming's `search` matches name AND description; we re-filter on name client-side.
+async function listTestCases({ search, limit, offset } = {}) {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  if (limit != null) params.set("limit", String(limit));
+  if (offset != null) params.set("offset", String(offset));
+  const qs = params.toString();
+  return request("GET", `/test-cases${qs ? `?${qs}` : ""}`);
 }
 
 module.exports = {

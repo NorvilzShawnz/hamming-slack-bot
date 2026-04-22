@@ -111,7 +111,9 @@ app.command("/hamming-help", async ({ ack, respond }) => {
             "`/hamming-tags --search=<term>` — Search workspace tags.\n" +
             "`/hamming-tags <agentId>` — List only the tags attached to one agent.\n" +
             "  _Example:_ `/hamming-tags cmo1ws1vc2gwv0tbnrug12dwm`\n\n" +
-            "`/hamming-datasets` — List individual test cases (useful if you want single-case IDs).\n" +
+            "`/hamming-datasets` — List test cases (shows workspace total).\n" +
+            "`/hamming-datasets --search=<term>` — Search test cases by name (multi-word phrases supported).\n" +
+            "  _Example:_ `/hamming-datasets --search=appointment confirmation`\n\n" +
             "`/hamming-help` — Show this help.",
         },
       },
@@ -334,14 +336,25 @@ app.command("/hamming-results", async ({ command, ack, respond }) => {
   }
 });
 
-app.command("/hamming-datasets", async ({ ack, respond }) => {
+app.command("/hamming-datasets", async ({ command, ack, respond }) => {
   await ack();
+  const rawText = (command.text || "").trim();
+  let searchTerm = "";
+  const searchIdx = rawText.toLowerCase().indexOf("--search=");
+  if (searchIdx !== -1) {
+    searchTerm = rawText.slice(searchIdx + "--search=".length).trim();
+  }
+
   try {
-    const data = await hammingClient.listTestCases();
-    const items = data.testCases || data.test_cases || data.items || data || [];
+    const data = await hammingClient.listTestCases({
+      search: searchTerm || undefined,
+      limit: 500,
+    });
+    const items = data.testCases || data.test_cases || data.items || (Array.isArray(data) ? data : []) || [];
+    const total = data.total;
     await respond({
       response_type: "ephemeral",
-      blocks: formatTestCases(items),
+      blocks: formatTestCases(items, { searchTerm, total }),
     });
   } catch (err) {
     await respond({ response_type: "ephemeral", text: `❌ Error: ${err.message}` });

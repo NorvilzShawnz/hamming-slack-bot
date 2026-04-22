@@ -19,7 +19,8 @@ Each selection token in a run command is either a `testCaseId` or `tag:<tagId>` 
 | `/hamming-tags` | List **all** workspace tags with per-tag case counts. |
 | `/hamming-tags --search=<term>` | List workspace tags whose **name** contains `<term>`. The search value consumes everything after `=` to end of line, so phrases like `--search=agent greeting` work. |
 | `/hamming-tags <agentId>` | List only the tags attached to one specific agent. |
-| `/hamming-datasets` | List individual test cases (useful for single-case runs) |
+| `/hamming-datasets` | List test cases, with the workspace total count. |
+| `/hamming-datasets --search=<term>` | Search test cases by **name** (server-side search then client-side name filter; multi-word phrases supported). |
 
 **Optional load-test flags**, usable on either run command:
 - `--samples=N` — run each case N times (1–50)
@@ -161,6 +162,12 @@ CMD ["node", "src/index.js"]
 # List the tags attached to one specific agent
 /hamming-tags cmo1ws1vc2gwv0tbnrug12dwm
 
+# Browse test cases (shows workspace total)
+/hamming-datasets
+
+# Search test cases by name
+/hamming-datasets --search=appointment confirmation
+
 # Outbound: Hamming returns temporary number(s) your agent must dial before expiry
 /hamming-run-outbound cmo1ws1vc2gwv0tbnrug12dwm cmo1x8fg61lhu0tdh3p1d1gsn
 
@@ -206,7 +213,7 @@ The bot uses Hamming's public REST API (`https://app.hamming.ai/api/rest`). Endp
 - `GET /agents` — List voice agents (no server-side search; filtering happens client-side)
 - `GET /agents/{id}/test-tags` — List tags attached to a specific agent with a `testCaseCount` per tag
 - `GET /test-tags` — List workspace-wide tags. Used by `/hamming-tags` (no agentId) and `--search=<term>` mode. Name filtering happens client-side so description matches don't dilute results.
-- `GET /test-cases` — List test cases (each includes its `tags[]` array with tag IDs)
+- `GET /test-cases` — List test cases (supports `search`, `limit` max 500, `offset`, plus `total` in response). Used by `/hamming-datasets` — server search narrows the candidate set, then a client-side name filter strips description matches, same rationale as `/test-tags`.
 
 Both run endpoints accept `testConfigurations[]` where each item selects by either `testCaseId` or `tagId`. Optional load-test parameters are `samplingCount` (1–50) and `maxConcurrentCalls` (1–100, default 10).
 

@@ -237,12 +237,24 @@ function formatTestRunResults(results, testRunId) {
   ];
 }
 
-function formatTestCases(testCases) {
-  if (!testCases || testCases.length === 0) {
-    return [{ type: "section", text: { type: "mrkdwn", text: "_No test cases found in your workspace._" } }];
+function formatTestCases(testCases, { searchTerm = "", total } = {}) {
+  const all = Array.isArray(testCases) ? testCases : [];
+  const q = (searchTerm || "").trim().toLowerCase();
+  const filtered = q
+    ? all.filter((tc) => (tc.title || tc.name || "").toLowerCase().includes(q))
+    : all;
+
+  const totalCount = total != null ? total : all.length;
+
+  if (filtered.length === 0) {
+    const msg = q
+      ? `_No test case names matched_ \`${searchTerm}\`. _Try a different term, or run_ \`/hamming-datasets\` _to browse (workspace has ${totalCount})._`
+      : "_No test cases found in your workspace._";
+    return [{ type: "section", text: { type: "mrkdwn", text: msg } }];
   }
 
-  const rows = testCases.slice(0, 45).map((tc) => {
+  const DISPLAY = 45;
+  const rows = filtered.slice(0, DISPLAY).map((tc) => {
     const tagList = Array.isArray(tc.tags) ? tc.tags : [];
     const tagLine = tagList.length
       ? `\n🏷 ${tagList.map((t) => `${t.name} \`${t.id}\``).join("  ·  ")}`
@@ -260,14 +272,31 @@ function formatTestCases(testCases) {
     };
   });
 
-  return [
-    { type: "header", text: { type: "plain_text", text: "🧪 Your Test Cases" } },
+  const header = q ? `🧪 Test Cases — name contains "${searchTerm}"` : "🧪 Your Test Cases";
+  const countLine = q
+    ? `${filtered.length} match${filtered.length === 1 ? "" : "es"} of ${totalCount} workspace total`
+    : `${totalCount} test case${totalCount === 1 ? "" : "s"} total`;
+
+  const blocks = [
+    { type: "header", text: { type: "plain_text", text: header } },
+    { type: "context", elements: [{ type: "mrkdwn", text: countLine }] },
     divider(),
     ...rows,
-    ...(testCases.length > 45
-      ? [{ type: "context", elements: [{ type: "mrkdwn", text: `_Showing 45 of ${testCases.length}. Use tags to group cases instead of listing all — copy a tag ID above and run with \`tag:<id>\`._` }] }]
-      : []),
   ];
+
+  if (filtered.length > DISPLAY) {
+    blocks.push({
+      type: "context",
+      elements: [
+        {
+          type: "mrkdwn",
+          text: `_Showing ${DISPLAY} of ${filtered.length}. Narrow with_ \`/hamming-datasets --search=<term>\`.`,
+        },
+      ],
+    });
+  }
+
+  return blocks;
 }
 
 function formatAgents(agents, searchQuery = "") {
