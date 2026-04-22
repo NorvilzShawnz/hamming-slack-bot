@@ -364,10 +364,16 @@ app.command("/hamming-agents", async ({ command, ack, respond }) => {
 
 app.command("/hamming-tags", async ({ command, ack, respond }) => {
   await ack();
-  const rawParts = (command.text || "").trim().split(/\s+/).filter(Boolean);
-  const { remaining: parts, flags } = extractFlags(rawParts);
+  const rawText = (command.text || "").trim();
+  let searchTerm = "";
+  let beforeSearch = rawText;
+  const searchIdx = rawText.toLowerCase().indexOf("--search=");
+  if (searchIdx !== -1) {
+    searchTerm = rawText.slice(searchIdx + "--search=".length).trim();
+    beforeSearch = rawText.slice(0, searchIdx).trim();
+  }
+  const parts = beforeSearch.split(/\s+/).filter(Boolean);
   const agentId = parts[0];
-  const searchTerm = flags.search;
 
   try {
     if (agentId && !searchTerm) {
