@@ -15,8 +15,10 @@ Each selection token in a run command is either a `testCaseId` or `tag:<tagId>` 
 | `/hamming-run-inbound <agentId> <selection[,selection,...]> <phoneNumber[,phoneNumber,...]> [--samples=N] [--concurrency=N]` | Start an inbound test. Hamming dials the phone number(s) attached to your agent. |
 | `/hamming-status <testRunId>` | Quick status card: state, timestamps, pass/fail counts |
 | `/hamming-results <testRunId>` | Full breakdown: per-case outcome + failed-check reasons, latency metrics, guardrail categories, top issues |
-| `/hamming-agents` | List voice agents in your workspace (with phone numbers used by inbound) |
-| `/hamming-tags <agentId>` | List tags attached to an agent, with per-tag case counts. Best way to pick a tag ID for a run. |
+| `/hamming-agents [searchTerm]` | List voice agents in your workspace. Optional search filters by name/ID (case-insensitive substring). |
+| `/hamming-tags` | List **all** workspace tags with per-tag case counts. |
+| `/hamming-tags --search=<term>` | List workspace tags whose **name** contains `<term>`. The search value consumes everything after `=` to end of line, so phrases like `--search=agent greeting` work. |
+| `/hamming-tags <agentId>` | List only the tags attached to one specific agent. |
 | `/hamming-datasets` | List individual test cases (useful for single-case runs) |
 
 **Optional load-test flags**, usable on either run command:
@@ -144,10 +146,19 @@ CMD ["node", "src/index.js"]
 ## Usage Examples
 
 ```
-# List the agents you have access to
+# List all the agents you have access to (with total count)
 /hamming-agents
 
-# List the tags attached to a specific agent (with case counts per tag)
+# Search agents by a substring of the name/ID
+/hamming-agents mary outbound
+
+# List every tag in the workspace, with case counts
+/hamming-tags
+
+# Search workspace tags by name (multi-word phrases supported)
+/hamming-tags --search=agent greeting
+
+# List the tags attached to one specific agent
 /hamming-tags cmo1ws1vc2gwv0tbnrug12dwm
 
 # Outbound: Hamming returns temporary number(s) your agent must dial before expiry
@@ -192,8 +203,9 @@ The bot uses Hamming's public REST API (`https://app.hamming.ai/api/rest`). Endp
 - `POST /test-runs/test-inbound-agent` — Start an inbound test; Hamming dials the `phoneNumbers` you provide
 - `GET /test-runs/{id}/status` — Poll status (QUEUED / RUNNING / COMPLETED / FAILED)
 - `GET /test-runs/{id}/results` — Fetch full results including per-case `assertionResults` with failure reasons, `summary.metrics` (latency percentiles, TTFW, talk ratio, etc.), `summary.assertions.categories` (guardrail breakdown), and `summary.topIssues`
-- `GET /agents` — List voice agents
+- `GET /agents` — List voice agents (no server-side search; filtering happens client-side)
 - `GET /agents/{id}/test-tags` — List tags attached to a specific agent with a `testCaseCount` per tag
+- `GET /test-tags` — List workspace-wide tags. Used by `/hamming-tags` (no agentId) and `--search=<term>` mode. Name filtering happens client-side so description matches don't dilute results.
 - `GET /test-cases` — List test cases (each includes its `tags[]` array with tag IDs)
 
 Both run endpoints accept `testConfigurations[]` where each item selects by either `testCaseId` or `tagId`. Optional load-test parameters are `samplingCount` (1–50) and `maxConcurrentCalls` (1–100, default 10).

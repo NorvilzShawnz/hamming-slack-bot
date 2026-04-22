@@ -4,23 +4,41 @@
 /hamming-agents
 ```
 
-Lists every voice agent in your Hamming workspace, with its ID. Copy the ID of the agent you want to test.
+Lists every voice agent in your Hamming workspace, with its ID. The header shows the total count so you know how big the list actually is.
 
-If your workspace has a large number of agents, the card can be unwieldy to scroll through — it's often faster to grab the agent ID directly from the Hamming.ai dashboard.
+If your workspace has thousands of agents, narrow the list with an optional search term — case-insensitive substring over name and ID:
+
+```
+/hamming-agents mary outbound
+```
+
+For very large workspaces the card is still capped at 45 rows, so search is the main way to find the exact one you want.
 
 ### Step 2 — Find what to run against it
 
-Two ways, but prefer tags.
+Three ways to list tags, in order of typical usefulness:
+
+```
+/hamming-tags --search=<term>
+```
+
+Workspace-wide tag search on tag **name** (case-insensitive substring, multi-word phrases supported). Best for finding a specific tag in a big workspace: `/hamming-tags --search=agent greeting`.
+
+```
+/hamming-tags
+```
+
+All workspace tags, no filter. Good for first-time browsing to see what's available.
 
 ```
 /hamming-tags <agentId>
 ```
 
-Lists every tag attached to that agent, with how many cases each tag contains. Pick the tag you want and copy its ID.
+Only the tags attached to one specific agent. Useful once you already know the agent.
+
+Prefer tags over single cases. Only use `/hamming-datasets` if you need a single case ID.
 
 If the agent has no tags yet, create one in Hamming.ai, fill it with the cases you want to run, and attach the agent to it. From then on, running tests in Slack is one command.
-
-Only use `/hamming-datasets` if you genuinely want to run a single case — tags are less typing and less error-prone.
 
 ### Step 3 — Start the test
 
