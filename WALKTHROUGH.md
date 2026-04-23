@@ -1,3 +1,19 @@
+### Step 0 — Quickstart
+
+The whole end-to-end flow, with each step expanded in the sections below:
+
+```
+/hamming-agents blah blah                     → find the agent
+/hamming-tag-create <name>                    → new tag
+/hamming-case-generate <agentId>              → AI generates cases (auto-associated)
+/hamming-datasets <agentId>                   → find the new case IDs
+/hamming-tag-attach <tagId> <caseIds>         → group them under the tag
+/hamming-run-outbound <agentId> tag:<tagId>   → outbound: Hamming returns numbers your agent must dial
+/hamming-run-inbound <agentId> tag:<tagId> <+1phoneNumber>   → inbound: Hamming dials the number
+```
+
+If you already know the commands, that's it. The rest of this doc expands each step.
+
 ### Step 1 — Find your agent
 
 ```
