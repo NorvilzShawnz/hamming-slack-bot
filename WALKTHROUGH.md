@@ -138,6 +138,28 @@ Typical flow:
 
 ---
 
+## Generating test cases from Slack
+
+For agents that don't have enough coverage yet, you can ask Hamming's AI to generate fresh cases without touching the dashboard.
+
+```
+/hamming-case-generate <agentId> [--count=N] [--instructions=<free text>]
+```
+
+Starts an async job. Responds with a job ID and the exact status command to run. `--instructions=` consumes everything to end of line, so natural phrases work: `--instructions=focus on appointment escalation paths`.
+
+```
+/hamming-generate-status <jobId> <agentId>
+```
+
+Polls the job. Expect 1–5 minutes of `PENDING` / `IN_PROGRESS` before it flips to `COMPLETED`. When it's done, the same command auto-fetches the results and previews the generated cases (name + ID, first 10).
+
+The generated cases are auto-associated with the agent — run `/hamming-datasets <agentId>` to see all the cases that now belong to it. From there you can group them into a tag with the flow above if you want to batch-run them.
+
+On failure, the status response surfaces Hamming's error message — usually enough to diagnose (bad agent config, instructions too long, etc.).
+
+---
+
 ## Common first-run gotchas
 
 - Outbound run "completed" after an hour with zero calls — your agent didn't dial the assigned numbers within the 10-minute window. That's on your agent, not Hamming.

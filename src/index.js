@@ -120,6 +120,10 @@ app.command("/hamming-help", async ({ ack, respond }) => {
             "  _Example:_ `/hamming-tag-create appointment confirmation --description=Agent confirms time`\n\n" +
             "`/hamming-tag-attach <tagId> <caseId1,caseId2,...>` — Attach a tag to one or more test cases.\n" +
             "  _Example:_ `/hamming-tag-attach cmo1ww6ny1g1g0tdh58cp0lbi caseA,caseB,caseC`\n\n" +
+            "*🤖 AI test case generation*\n" +
+            "`/hamming-case-generate <agentId> [--count=N] [--instructions=<text>]` — Start an async job that generates cases for an agent. Takes 1–5 minutes. Returns a job ID.\n" +
+            "  _Example:_ `/hamming-case-generate cmo1ws1vc2gwv0tbnrug12dwm --count=5 --instructions=focus on appointment escalation`\n\n" +
+            "`/hamming-generate-status <jobId> <agentId>` — Poll job status. On completion, auto-fetches and previews the generated cases.\n\n" +
             "`/hamming-help` — Show this help.",
         },
       },
@@ -505,6 +509,154 @@ app.command("/hamming-tag-attach", async ({ command, ack, respond }) => {
           },
         },
       ],
+    });
+  } catch (err) {
+    await respond({ response_type: "ephemeral", text: `❌ Error: ${err.message}` });
+  }
+});
+
+app.command("/hamming-case-generate", async ({ command, ack, respond }) => {
+  await ack();
+  const rawText = (command.text || "").trim();
+
+  // Pull --instructions=... out first (greedy to end of line)
+  let instructions = "";
+  let beforeInst = rawText;
+  const instIdx = rawText.toLowerCase().indexOf("--instructions=");
+  if (instIdx !== -1) {
+    instructions = rawText.slice(instIdx + "--instructions=".length).trim();
+    beforeInst = rawText.slice(0, instIdx).trim();
+  }
+
+  const rawParts = beforeInst.split(/\s+/).filter(Boolean);
+  const { remaining: parts, flags } = extractFlags(rawParts);
+  const agentId = parts[0];
+
+  if (!agentId) {
+    return respond({
+      response_type: "ephemeral",
+      text:
+        "⚠️ Usage: `/hamming-case-generate <agentId> [--count=N] [--instructions=<text>]`\n" +
+        "Example: `/hamming-case-generate cmo1ws1vc2gwv0tbnrug12dwm --count=5 --instructions=focus on appointment escalation paths`",
+    });
+  }
+
+  let maxTestCases;
+  if (flags.count != null) {
+    const n = parseInt(flags.count, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      return respond({ response_type: "ephemeral", text: "⚠️ `--count=N` must be a positive integer." });
+    }
+    maxTestCases = n;
+  }
+
+  try {
+    const result = await hammingClient.generateTestCases({
+      customerVoiceAgentId: agentId,
+      maxTestCases,
+      generationInstructions: instructions || undefined,
+    });
+    const jobId = result.id || result.jobId || result.job_id;
+
+    await respond({
+      response_type: "ephemeral",
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `✅ *Generation job started!*\n` +
+              `• Job ID: \`${jobId || "(see dashboard)"}\`\n` +
+              `• Agent: \`${agentId}\`\n` +
+              (maxTestCases ? `• Max cases: ${maxTestCases}\n` : "") +
+              (instructions ? `• Instructions: _${instructions}_\n` : "") +
+              `\n⏱ Generation typically takes *1–5 minutes*.\n` +
+              (jobId
+                ? `_Check progress with:_ \`/hamming-generate-status ${jobId} ${agentId}\``
+                : "_Check progress in the Hamming dashboard — no job ID returned._"),
+          },
+        },
+      ],
+    });
+  } catch (err) {
+    await respond({ response_type: "ephemeral", text: `❌ Error: ${err.message}` });
+  }
+});
+
+app.command("/hamming-generate-status", async ({ command, ack, respond }) => {
+  await ack();
+  const parts = (command.text || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) {
+    return respond({
+      response_type: "ephemeral",
+      text:
+        "⚠️ Usage: `/hamming-generate-status <jobId> <agentId>`\n" +
+        "_Both IDs are required — Hamming's status endpoint ties jobs to the agent they were started for._",
+    });
+  }
+  const [jobId, agentId] = parts;
+
+  try {
+    const status = await hammingClient.getGenerateJobStatus(jobId, agentId);
+    const s = (status.status || status.state || "").toUpperCase();
+
+    if (s === "COMPLETED") {
+      const resultData = await hammingClient.getGenerateJobResult(jobId, agentId);
+      const cases = resultData.testCases || resultData.cases || [];
+      const totalGenerated = resultData.totalGenerated ?? cases.length;
+
+      const preview = cases.slice(0, 10).map((c) => {
+        const title = c.name || c.title || "Unnamed";
+        return `• *${title}* — \`${c.id}\``;
+      }).join("\n");
+
+      await respond({
+        response_type: "ephemeral",
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                `✅ *Generation complete!*\n` +
+                `• Job: \`${jobId}\`\n` +
+                `• Agent: \`${agentId}\`\n` +
+                `• Cases generated: *${totalGenerated}*\n\n` +
+                (preview
+                  ? `*First ${Math.min(10, cases.length)}:*\n${preview}\n` +
+                    (cases.length > 10 ? `_…and ${cases.length - 10} more_\n` : "")
+                  : "") +
+                `\n_Cases are auto-associated with the agent. See all with:_ \`/hamming-datasets ${agentId}\``,
+            },
+          },
+        ],
+      });
+      return;
+    }
+
+    if (s === "FAILED") {
+      const err = status.error || status.errorMessage || status.message || "(no details provided)";
+      return respond({
+        response_type: "ephemeral",
+        text:
+          `❌ *Generation failed*\n` +
+          `• Job: \`${jobId}\`\n` +
+          `• Agent: \`${agentId}\`\n` +
+          `• Error: ${err}`,
+      });
+    }
+
+    // PENDING or IN_PROGRESS
+    const currentStep = status.currentStep ? `\n• Current step: _${status.currentStep}_` : "";
+    await respond({
+      response_type: "ephemeral",
+      text:
+        `⏳ *Generation ${s.toLowerCase() || "in progress"}*\n` +
+        `• Job: \`${jobId}\`\n` +
+        `• Agent: \`${agentId}\`` +
+        currentStep +
+        `\n_Check again in a minute with the same command._`,
     });
   } catch (err) {
     await respond({ response_type: "ephemeral", text: `❌ Error: ${err.message}` });

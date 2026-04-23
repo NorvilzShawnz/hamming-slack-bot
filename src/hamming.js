@@ -92,6 +92,26 @@ async function attachTagToCases(tagId, caseIds) {
   return request("POST", `/test-tags/${tagId}/test-cases`, { testCaseIds: caseIds });
 }
 
+// POST /test-cases/generate  — start an async AI-generation job for an agent
+async function generateTestCases({ customerVoiceAgentId, maxTestCases, generationInstructions }) {
+  const body = { customerVoiceAgentId };
+  if (maxTestCases != null) body.maxTestCases = maxTestCases;
+  if (generationInstructions) body.generationInstructions = generationInstructions;
+  return request("POST", `/test-cases/generate`, body);
+}
+
+// GET /test-cases/generate/{jobId}/status  — poll a generation job
+async function getGenerateJobStatus(jobId, customerVoiceAgentId) {
+  const qs = new URLSearchParams({ customerVoiceAgentId }).toString();
+  return request("GET", `/test-cases/generate/${jobId}/status?${qs}`);
+}
+
+// GET /test-cases/generate/{jobId}/result  — fetch completed cases (400 if not done)
+async function getGenerateJobResult(jobId, customerVoiceAgentId) {
+  const qs = new URLSearchParams({ customerVoiceAgentId }).toString();
+  return request("GET", `/test-cases/generate/${jobId}/result?${qs}`);
+}
+
 // GET /test-tags  (workspace-wide; supports search, agentId, includeTestCaseCount)
 async function listWorkspaceTags({ search, agentId, includeTestCaseCount = true } = {}) {
   const params = new URLSearchParams();
@@ -124,5 +144,8 @@ module.exports = {
   listWorkspaceTags,
   createTag,
   attachTagToCases,
+  generateTestCases,
+  getGenerateJobStatus,
+  getGenerateJobResult,
   listTestCases,
 };
