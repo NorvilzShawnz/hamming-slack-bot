@@ -23,6 +23,8 @@ Each selection token in a run command is either a `testCaseId` or `tag:<tagId>` 
 | `/hamming-datasets <agentId>` | List only the cases associated with that agent. |
 | `/hamming-datasets --search=<term>` | Search test cases by **name** (server-side search then client-side name filter; multi-word phrases supported). |
 | `/hamming-datasets <agentId> --search=<term>` | Combine agent filter with name search. |
+| `/hamming-tag-create <name> [--description=<desc>]` | Create a new workspace tag. Returns the new tag's ID. |
+| `/hamming-tag-attach <tagId> <caseId1,caseId2,...>` | Attach a tag to one or more test cases (comma-separated, no spaces). |
 
 **Optional load-test flags**, usable on either run command:
 - `--samples=N` — run each case N times (1–50)
@@ -70,6 +72,8 @@ Go to **Slash Commands** → **Create New Command** for each of the following:
 | `/hamming-agents` | List voice agents |
 | `/hamming-tags` | List tags attached to an agent |
 | `/hamming-datasets` | List test cases |
+| `/hamming-tag-create` | Create a new workspace tag |
+| `/hamming-tag-attach` | Attach a tag to one or more test cases |
 
 > **Socket Mode tip:** In Socket Mode, the Request URL fields are not used — leave them blank or use a placeholder like `https://example.com`.
 
@@ -178,6 +182,10 @@ CMD ["node", "src/index.js"]
 # Agent filter and name search combined
 /hamming-datasets cmo1ws1vc2gwv0tbnrug12dwm --search=appointment confirmation
 
+# Create a new tag, then attach cases to it
+/hamming-tag-create smoke-tests --description=Quick sanity checks
+/hamming-tag-attach <tagIdFromAbove> caseId1,caseId2,caseId3
+
 # Outbound: Hamming returns temporary number(s) your agent must dial before expiry
 /hamming-run-outbound cmo1ws1vc2gwv0tbnrug12dwm cmo1x8fg61lhu0tdh3p1d1gsn
 
@@ -223,6 +231,8 @@ The bot uses Hamming's public REST API (`https://app.hamming.ai/api/rest`). Endp
 - `GET /agents` — List voice agents (no server-side search; filtering happens client-side)
 - `GET /agents/{id}/test-tags` — List tags attached to a specific agent with a `testCaseCount` per tag
 - `GET /test-tags` — List workspace-wide tags. Used by `/hamming-tags` (no agentId) and `--search=<term>` mode. Name filtering happens client-side so description matches don't dilute results.
+- `POST /test-tags` — Create a workspace tag. Body: `{ name, description? }`. Used by `/hamming-tag-create`.
+- `POST /test-tags/{tagId}/test-cases` — Attach a tag to one or more test cases. Body: `{ testCaseIds: [...] }`. Used by `/hamming-tag-attach`.
 - `GET /test-cases` — List test cases (supports `search`, `limit` max 500, `offset`, plus `total` in response). Used by `/hamming-datasets` — server search narrows the candidate set, then a client-side name filter strips description matches, same rationale as `/test-tags`.
 
 Both run endpoints accept `testConfigurations[]` where each item selects by either `testCaseId` or `tagId`. Optional load-test parameters are `samplingCount` (1–50) and `maxConcurrentCalls` (1–100, default 10).

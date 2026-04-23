@@ -80,6 +80,18 @@ async function listAgentTags(agentId) {
   return request("GET", `/agents/${agentId}/test-tags`);
 }
 
+// POST /test-tags  — create a new workspace tag
+async function createTag({ name, description }) {
+  const body = { name };
+  if (description) body.description = description;
+  return request("POST", `/test-tags`, body);
+}
+
+// POST /test-tags/{tagId}/test-cases  — attach a tag to one or more test cases
+async function attachTagToCases(tagId, caseIds) {
+  return request("POST", `/test-tags/${tagId}/test-cases`, { testCaseIds: caseIds });
+}
+
 // GET /test-tags  (workspace-wide; supports search, agentId, includeTestCaseCount)
 async function listWorkspaceTags({ search, agentId, includeTestCaseCount = true } = {}) {
   const params = new URLSearchParams();
@@ -110,5 +122,7 @@ module.exports = {
   listAgents,
   listAgentTags,
   listWorkspaceTags,
+  createTag,
+  attachTagToCases,
   listTestCases,
 };

@@ -113,6 +113,31 @@ Total calls placed = selections × samples × phoneNumbers.
 
 ---
 
+## Creating tags from Slack
+
+You don't need to open the Hamming dashboard to organize test cases into a tag.
+
+```
+/hamming-tag-create <name> [--description=<desc>]
+```
+
+Creates a workspace tag. The response includes the new tag's ID.
+
+```
+/hamming-tag-attach <tagId> <caseId1,caseId2,...>
+```
+
+Attaches the tag to one or more existing test cases (comma-separated, no spaces). Once attached, `/hamming-run-outbound <agentId> tag:<tagId>` will run every case under that tag.
+
+Typical flow:
+
+1. `/hamming-datasets <agentId> --search=<topic>` — find cases you want to group
+2. `/hamming-tag-create <name>` — create the tag
+3. `/hamming-tag-attach <tagId> <caseIds>` — attach the cases from step 1
+4. `/hamming-run-outbound <agentId> tag:<tagId>` — run them
+
+---
+
 ## Common first-run gotchas
 
 - Outbound run "completed" after an hour with zero calls — your agent didn't dial the assigned numbers within the 10-minute window. That's on your agent, not Hamming.

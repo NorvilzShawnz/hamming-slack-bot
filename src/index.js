@@ -113,9 +113,13 @@ app.command("/hamming-help", async ({ ack, respond }) => {
             "  _Example:_ `/hamming-tags cmo1ws1vc2gwv0tbnrug12dwm`\n\n" +
             "`/hamming-datasets` — List all test cases (shows workspace total).\n" +
             "`/hamming-datasets <agentId>` — List only cases associated with that agent.\n" +
-            "`/hamming-datasets --search=<term>` — Search test cases by name (multi-word phrases supported).\n" +
-            "`/hamming-datasets <agentId> --search=<term>` — Combine agent filter with name search.\n" +
+            "`/hamming-datasets --search=<term>` — Search test cases by name (multi-word phrases supported). The `<agentId>` and `--search=` can combine.\n" +
             "  _Example:_ `/hamming-datasets cmo1ws1vc2gwv0tbnrug12dwm --search=appointment confirmation`\n\n" +
+            "*✏️ Create & organize*\n" +
+            "`/hamming-tag-create <name> [--description=<desc>]` — Create a new workspace tag.\n" +
+            "  _Example:_ `/hamming-tag-create appointment confirmation --description=Agent confirms time`\n\n" +
+            "`/hamming-tag-attach <tagId> <caseId1,caseId2,...>` — Attach a tag to one or more test cases.\n" +
+            "  _Example:_ `/hamming-tag-attach cmo1ww6ny1g1g0tdh58cp0lbi caseA,caseB,caseC`\n\n" +
             "`/hamming-help` — Show this help.",
         },
       },
@@ -408,6 +412,99 @@ app.command("/hamming-tags", async ({ command, ack, respond }) => {
     return respond({
       response_type: "ephemeral",
       blocks: formatWorkspaceTags(data.tags || [], { searchTerm: searchTerm || "" }),
+    });
+  } catch (err) {
+    await respond({ response_type: "ephemeral", text: `❌ Error: ${err.message}` });
+  }
+});
+
+app.command("/hamming-tag-create", async ({ command, ack, respond }) => {
+  await ack();
+  const rawText = (command.text || "").trim();
+
+  let description = "";
+  let beforeDesc = rawText;
+  const descIdx = rawText.toLowerCase().indexOf("--description=");
+  if (descIdx !== -1) {
+    description = rawText.slice(descIdx + "--description=".length).trim();
+    beforeDesc = rawText.slice(0, descIdx).trim();
+  }
+  const name = beforeDesc;
+
+  if (!name) {
+    return respond({
+      response_type: "ephemeral",
+      text:
+        "⚠️ Usage: `/hamming-tag-create <name> [--description=<desc>]`\n" +
+        "Example: `/hamming-tag-create appointment confirmation --description=Agent confirms appointment time`",
+    });
+  }
+
+  try {
+    const tag = await hammingClient.createTag({ name, description: description || undefined });
+    const tagId = tag.id || tag.tagId;
+    await respond({
+      response_type: "ephemeral",
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `✅ *Tag created!*\n` +
+              `• Name: *${name}*\n` +
+              (description ? `• Description: _${description}_\n` : "") +
+              `• ID: \`${tagId || "(see dashboard)"}\`` +
+              (tagId
+                ? `\n\n_Attach cases with:_ \`/hamming-tag-attach ${tagId} <caseId1,caseId2,...>\``
+                : ""),
+          },
+        },
+      ],
+    });
+  } catch (err) {
+    await respond({ response_type: "ephemeral", text: `❌ Error: ${err.message}` });
+  }
+});
+
+app.command("/hamming-tag-attach", async ({ command, ack, respond }) => {
+  await ack();
+  const parts = (command.text || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) {
+    return respond({
+      response_type: "ephemeral",
+      text:
+        "⚠️ Usage: `/hamming-tag-attach <tagId> <caseId1,caseId2,...>`\n" +
+        "Example: `/hamming-tag-attach cmo1ww6ny1g1g0tdh58cp0lbi caseA,caseB,caseC`\n" +
+        "_(Comma-separated case IDs, no spaces.)_",
+    });
+  }
+  const [tagId, caseArg] = parts;
+  const caseIds = caseArg.split(",").map((s) => s.trim()).filter(Boolean);
+  if (caseIds.length === 0) {
+    return respond({
+      response_type: "ephemeral",
+      text: "⚠️ At least one `testCaseId` is required. Separate multiple with commas (no spaces).",
+    });
+  }
+
+  try {
+    await hammingClient.attachTagToCases(tagId, caseIds);
+    await respond({
+      response_type: "ephemeral",
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text:
+              `✅ *Tag attached!*\n` +
+              `• Tag: \`${tagId}\`\n` +
+              `• Cases attached: ${caseIds.length}\n\n` +
+              `_Run the tag with:_ \`/hamming-run-outbound <agentId> tag:${tagId}\``,
+          },
+        },
+      ],
     });
   } catch (err) {
     await respond({ response_type: "ephemeral", text: `❌ Error: ${err.message}` });
