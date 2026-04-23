@@ -15,12 +15,14 @@ Each selection token in a run command is either a `testCaseId` or `tag:<tagId>` 
 | `/hamming-run-inbound <agentId> <selection[,selection,...]> <phoneNumber[,phoneNumber,...]> [--samples=N] [--concurrency=N]` | Start an inbound test. Hamming dials the phone number(s) attached to your agent. |
 | `/hamming-status <testRunId>` | Quick status card: state, timestamps, pass/fail counts |
 | `/hamming-results <testRunId>` | Full breakdown: per-case outcome + failed-check reasons, latency metrics, guardrail categories, top issues |
-| `/hamming-agents [searchTerm]` | List voice agents in your workspace. Optional search filters by name/ID (case-insensitive substring). |
+| `/hamming-agents [searchTerm]` | List voice agents in your workspace. Optional search uses **token-AND matching** over name/ID — every word in the query must appear somewhere in the agent's name or ID (any order, punctuation-agnostic). So `mary outbound` matches `Mary: Outbound: Version 35` even though a colon sits between the words. |
 | `/hamming-tags` | List **all** workspace tags with per-tag case counts. |
 | `/hamming-tags --search=<term>` | List workspace tags whose **name** contains `<term>`. The search value consumes everything after `=` to end of line, so phrases like `--search=agent greeting` work. |
 | `/hamming-tags <agentId>` | List only the tags attached to one specific agent. |
 | `/hamming-datasets` | List test cases, with the workspace total count. |
+| `/hamming-datasets <agentId>` | List only the cases associated with that agent. |
 | `/hamming-datasets --search=<term>` | Search test cases by **name** (server-side search then client-side name filter; multi-word phrases supported). |
+| `/hamming-datasets <agentId> --search=<term>` | Combine agent filter with name search. |
 
 **Optional load-test flags**, usable on either run command:
 - `--samples=N` — run each case N times (1–50)
@@ -150,8 +152,10 @@ CMD ["node", "src/index.js"]
 # List all the agents you have access to (with total count)
 /hamming-agents
 
-# Search agents by a substring of the name/ID
+# Search agents with token-AND matching (every word must appear somewhere
+# in the name/ID, punctuation-agnostic)
 /hamming-agents mary outbound
+/hamming-agents mary ahmad     # even more specific — both words required
 
 # List every tag in the workspace, with case counts
 /hamming-tags
@@ -165,8 +169,14 @@ CMD ["node", "src/index.js"]
 # Browse test cases (shows workspace total)
 /hamming-datasets
 
+# List only the cases associated with one agent
+/hamming-datasets cmo1ws1vc2gwv0tbnrug12dwm
+
 # Search test cases by name
 /hamming-datasets --search=appointment confirmation
+
+# Agent filter and name search combined
+/hamming-datasets cmo1ws1vc2gwv0tbnrug12dwm --search=appointment confirmation
 
 # Outbound: Hamming returns temporary number(s) your agent must dial before expiry
 /hamming-run-outbound cmo1ws1vc2gwv0tbnrug12dwm cmo1x8fg61lhu0tdh3p1d1gsn

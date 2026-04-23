@@ -237,7 +237,7 @@ function formatTestRunResults(results, testRunId) {
   ];
 }
 
-function formatTestCases(testCases, { searchTerm = "", total } = {}) {
+function formatTestCases(testCases, { searchTerm = "", total, agentId } = {}) {
   const all = Array.isArray(testCases) ? testCases : [];
   const q = (searchTerm || "").trim().toLowerCase();
   const filtered = q
@@ -248,7 +248,9 @@ function formatTestCases(testCases, { searchTerm = "", total } = {}) {
 
   if (filtered.length === 0) {
     const msg = q
-      ? `_No test case names matched_ \`${searchTerm}\`. _Try a different term, or run_ \`/hamming-datasets\` _to browse (workspace has ${totalCount})._`
+      ? `_No test case names matched_ \`${searchTerm}\`${agentId ? ` _for agent_ \`${agentId}\`` : ""}. _Try a different term, or widen the scope._`
+      : agentId
+      ? `_No test cases found for agent_ \`${agentId}\`.`
       : "_No test cases found in your workspace._";
     return [{ type: "section", text: { type: "mrkdwn", text: msg } }];
   }
@@ -272,10 +274,14 @@ function formatTestCases(testCases, { searchTerm = "", total } = {}) {
     };
   });
 
-  const header = q ? `🧪 Test Cases — name contains "${searchTerm}"` : "🧪 Your Test Cases";
+  const header = agentId
+    ? (q ? `🧪 Test Cases for agent — name contains "${searchTerm}"` : "🧪 Test Cases for agent")
+    : (q ? `🧪 Test Cases — name contains "${searchTerm}"` : "🧪 Your Test Cases");
+
+  const scopeLabel = agentId ? `for agent \`${agentId}\`` : "workspace total";
   const countLine = q
-    ? `${filtered.length} match${filtered.length === 1 ? "" : "es"} of ${totalCount} workspace total`
-    : `${totalCount} test case${totalCount === 1 ? "" : "s"} total`;
+    ? `${filtered.length} match${filtered.length === 1 ? "" : "es"} of ${totalCount} ${scopeLabel}`
+    : `${totalCount} test case${totalCount === 1 ? "" : "s"} ${scopeLabel}`;
 
   const blocks = [
     { type: "header", text: { type: "plain_text", text: header } },
@@ -305,12 +311,12 @@ function formatAgents(agents, searchQuery = "") {
     return [{ type: "section", text: { type: "mrkdwn", text: "_No voice agents found in your workspace._" } }];
   }
 
-  const q = (searchQuery || "").trim().toLowerCase();
-  const filtered = q
+  const tokens = (searchQuery || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const filtered = tokens.length
     ? all.filter((a) => {
         const name = (a.name || "").toLowerCase();
         const id = (a.id || "").toLowerCase();
-        return name.includes(q) || id.includes(q);
+        return tokens.every((t) => name.includes(t) || id.includes(t));
       })
     : all;
 
@@ -345,7 +351,7 @@ function formatAgents(agents, searchQuery = "") {
     };
   });
 
-  const hasQuery = q.length > 0;
+  const hasQuery = tokens.length > 0;
   const header = hasQuery ? `🤖 Voice Agents — matching "${searchQuery}"` : "🤖 Your Voice Agents";
   const countLine = hasQuery
     ? `${filtered.length} match${filtered.length === 1 ? "" : "es"} of ${all.length} total`

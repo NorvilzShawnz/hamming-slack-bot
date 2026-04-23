@@ -6,10 +6,11 @@
 
 Lists every voice agent in your Hamming workspace, with its ID. The header shows the total count so you know how big the list actually is.
 
-If your workspace has thousands of agents, narrow the list with an optional search term — case-insensitive substring over name and ID:
+If your workspace has thousands of agents, narrow the list with an optional search term. Matching is **token-AND** — every word in your query must appear somewhere in the agent's name or ID, in any order, regardless of punctuation between them:
 
 ```
-/hamming-agents mary outbound
+/hamming-agents mary outbound     # matches "Mary: Outbound: Version 35"
+/hamming-agents mary ahmad        # both words required, any order
 ```
 
 For very large workspaces the card is still capped at 45 rows, so search is the main way to find the exact one you want.
@@ -36,7 +37,12 @@ All workspace tags, no filter. Good for first-time browsing to see what's availa
 
 Only the tags attached to one specific agent. Useful once you already know the agent.
 
-Prefer tags over single cases. If you do need a single case ID, `/hamming-datasets --search=<term>` searches test cases by name (multi-word phrases supported), and bare `/hamming-datasets` shows the workspace total.
+Prefer tags over single cases. If you do need a single case ID:
+
+- `/hamming-datasets` — browse all cases (shows workspace total)
+- `/hamming-datasets <agentId>` — only the cases associated with one agent
+- `/hamming-datasets --search=<term>` — search by name (multi-word phrases supported)
+- `/hamming-datasets <agentId> --search=<term>` — both filters combined
 
 If the agent has no tags yet, create one in Hamming.ai, fill it with the cases you want to run, and attach the agent to it. From then on, running tests in Slack is one command.
 

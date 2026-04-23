@@ -90,11 +90,12 @@ async function listWorkspaceTags({ search, agentId, includeTestCaseCount = true 
   return request("GET", `/test-tags${qs ? `?${qs}` : ""}`);
 }
 
-// GET /test-cases  (supports search, limit, offset)
+// GET /test-cases  (supports search, agentId, limit, offset)
 // Hamming's `search` matches name AND description; we re-filter on name client-side.
-async function listTestCases({ search, limit, offset } = {}) {
+async function listTestCases({ search, agentId, limit, offset } = {}) {
   const params = new URLSearchParams();
   if (search) params.set("search", search);
+  if (agentId) params.set("agentId", agentId);
   if (limit != null) params.set("limit", String(limit));
   if (offset != null) params.set("offset", String(offset));
   const qs = params.toString();
