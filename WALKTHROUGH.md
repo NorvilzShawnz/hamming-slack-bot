@@ -6,7 +6,7 @@ The whole end-to-end flow, with each step expanded in the sections below:
 /hamming-agents blah blah                     → find the agent
 /hamming-tag-create <name>                    → new tag
 /hamming-case-generate <agentId>              → AI generates cases (auto-associated)
-/hamming-datasets <agentId>                   → find the new case IDs
+/hamming-cases <agentId>                   → find the new case IDs
 /hamming-tag-attach <tagId> <caseIds>         → group them under the tag
 /hamming-run-outbound <agentId> tag:<tagId>   → outbound: Hamming returns numbers your agent must dial
 /hamming-run-inbound <agentId> tag:<tagId> <+1phoneNumber>   → inbound: Hamming dials the number
@@ -55,10 +55,10 @@ Only the tags attached to one specific agent. Useful once you already know the a
 
 Prefer tags over single cases. If you do need a single case ID:
 
-- `/hamming-datasets` — browse all cases (shows workspace total)
-- `/hamming-datasets <agentId>` — only the cases associated with one agent
-- `/hamming-datasets --search=<term>` — search by name (multi-word phrases supported)
-- `/hamming-datasets <agentId> --search=<term>` — both filters combined
+- `/hamming-cases` — browse all cases (shows workspace total)
+- `/hamming-cases <agentId>` — only the cases associated with one agent
+- `/hamming-cases --search=<term>` — search by name (multi-word phrases supported)
+- `/hamming-cases <agentId> --search=<term>` — both filters combined
 
 If the agent has no tags yet, create one in Hamming.ai, fill it with the cases you want to run, and attach the agent to it. From then on, running tests in Slack is one command.
 
@@ -91,7 +91,7 @@ The response card gives you:
 ### Step 4 — Watch it
 
 ```
-/hamming-status <testRunId>
+/hamming-run-status <testRunId>
 ```
 
 Status card: `QUEUED` → `RUNNING` → `COMPLETED`, with pass/fail counts and a refresh button so you don't have to re-type the ID.
@@ -101,7 +101,7 @@ Status card: `QUEUED` → `RUNNING` → `COMPLETED`, with pass/fail counts and a
 Once the run is `COMPLETED`:
 
 ```
-/hamming-results <testRunId>
+/hamming-run-results <testRunId>
 ```
 
 The card shows:
@@ -149,7 +149,7 @@ Attaches the tag to one or more existing test cases (comma-separated, no spaces)
 >
 > `Hamming API error (400): Requested run selection resolved to no runnable test cases`
 >
-> The simplest way to avoid this is the AI-generation path below — generated cases are *automatically* associated with the agent you specify. If you'd rather attach existing cases manually, first verify they belong to your target agent with `/hamming-datasets <agentId>` and only attach IDs you see in that list.
+> The simplest way to avoid this is the AI-generation path below — generated cases are *automatically* associated with the agent you specify. If you'd rather attach existing cases manually, first verify they belong to your target agent with `/hamming-cases <agentId>` and only attach IDs you see in that list.
 
 **Recommended (easier) flow — let the AI generate cases for the agent first:**
 
@@ -161,7 +161,7 @@ Attaches the tag to one or more existing test cases (comma-separated, no spaces)
 
 **Manual flow — only if you already have specific cases in mind:**
 
-1. `/hamming-datasets <agentId> --search=<topic>` — find cases that already belong to your agent
+1. `/hamming-cases <agentId> --search=<topic>` — find cases that already belong to your agent
 2. `/hamming-tag-create <name>` — create the tag
 3. `/hamming-tag-attach <tagId> <caseIds>` — attach the cases from step 1 (must come from the same agent's list)
 4. `/hamming-run-outbound <agentId> tag:<tagId>` — run them
@@ -184,7 +184,7 @@ Starts an async job. Responds with a job ID and the exact status command to run.
 
 Polls the job. Expect 1–5 minutes of `PENDING` / `IN_PROGRESS` before it flips to `COMPLETED`. When it's done, the same command auto-fetches the results and previews the generated cases (name + ID, first 10).
 
-The generated cases are auto-associated with the agent — run `/hamming-datasets <agentId>` to see all the cases that now belong to it. From there you can group them into a tag with the flow above if you want to batch-run them.
+The generated cases are auto-associated with the agent — run `/hamming-cases <agentId>` to see all the cases that now belong to it. From there you can group them into a tag with the flow above if you want to batch-run them.
 
 On failure, the status response surfaces Hamming's error message — usually enough to diagnose (bad agent config, instructions too long, etc.).
 

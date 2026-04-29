@@ -92,10 +92,10 @@ app.command("/hamming-help", async ({ ack, respond }) => {
           type: "mrkdwn",
           text:
             "*📊 Check a test*\n" +
-            "`/hamming-status <testRunId>` — Quick status + pass/fail counts.\n" +
-            "  _Example:_ `/hamming-status cmo367rl908xi0tg9jp7e8e0u`\n\n" +
-            "`/hamming-results <testRunId>` — Full breakdown: guardrails, latency metrics, failed-check reasons, top issues.\n" +
-            "  _Example:_ `/hamming-results cmo367rl908xi0tg9jp7e8e0u`",
+            "`/hamming-run-status <testRunId>` — Quick status + pass/fail counts.\n" +
+            "  _Example:_ `/hamming-run-status cmo367rl908xi0tg9jp7e8e0u`\n\n" +
+            "`/hamming-run-results <testRunId>` — Full breakdown: guardrails, latency metrics, failed-check reasons, top issues.\n" +
+            "  _Example:_ `/hamming-run-results cmo367rl908xi0tg9jp7e8e0u`",
         },
       },
       { type: "divider" },
@@ -111,10 +111,10 @@ app.command("/hamming-help", async ({ ack, respond }) => {
             "`/hamming-tags --search=<term>` — Search workspace tags.\n" +
             "`/hamming-tags <agentId>` — List only the tags attached to one agent.\n" +
             "  _Example:_ `/hamming-tags cmo1ws1vc2gwv0tbnrug12dwm`\n\n" +
-            "`/hamming-datasets` — List all test cases (shows workspace total).\n" +
-            "`/hamming-datasets <agentId>` — List only cases associated with that agent.\n" +
-            "`/hamming-datasets --search=<term>` — Search test cases by name (multi-word phrases supported). The `<agentId>` and `--search=` can combine.\n" +
-            "  _Example:_ `/hamming-datasets cmo1ws1vc2gwv0tbnrug12dwm --search=appointment confirmation`\n\n" +
+            "`/hamming-cases` — List all test cases (shows workspace total).\n" +
+            "`/hamming-cases <agentId>` — List only cases associated with that agent.\n" +
+            "`/hamming-cases --search=<term>` — Search test cases by name (multi-word phrases supported). The `<agentId>` and `--search=` can combine.\n" +
+            "  _Example:_ `/hamming-cases cmo1ws1vc2gwv0tbnrug12dwm --search=appointment confirmation`\n\n" +
             "*✏️ Create & organize*\n" +
             "`/hamming-tag-create <name> [--description=<desc>]` — Create a new workspace tag.\n" +
             "  _Example:_ `/hamming-tag-create appointment confirmation --description=Agent confirms time`\n\n" +
@@ -125,6 +125,31 @@ app.command("/hamming-help", async ({ ack, respond }) => {
             "  _Example:_ `/hamming-case-generate cmo1ws1vc2gwv0tbnrug12dwm --count=5 --instructions=focus on appointment escalation`\n\n" +
             "`/hamming-generate-status <jobId> <agentId>` — Poll job status. On completion, auto-fetches and previews the generated cases.\n\n" +
             "`/hamming-help` — Show this help.",
+        },
+      },
+      { type: "divider" },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            "*💡 Example end-to-end flow*\n" +
+            "_(Real IDs shown — replace with your own.)_\n\n" +
+            "`1.` Find an agent\n" +
+            "    `/hamming-agents mary outbound`\n\n" +
+            "`2.` Create a tag\n" +
+            "    `/hamming-tag-create demo-smoke-tests --description=Quick smoke tests`\n\n" +
+            "`3.` AI-generate cases for the agent (auto-associated)\n" +
+            "    `/hamming-case-generate cmo1ws1vc2gwv0tbnrug12dwm --count=3 --instructions=simple booking flow checks`\n\n" +
+            "`4.` Poll until COMPLETED, then the response previews the new case IDs\n" +
+            "    `/hamming-generate-status <jobId> cmo1ws1vc2gwv0tbnrug12dwm`\n\n" +
+            "`5.` Attach those new cases to the tag\n" +
+            "    `/hamming-tag-attach cmokj82xtqa6g0ti3f4gq0bfr cmobuidw4012r0tgdtu6hsbr5,cmobuidvw012q0tgdvromm1hg,cmobuidv1012p0tgdwn8t31zs`\n\n" +
+            "`6.` Run the tag against the agent\n" +
+            "    `/hamming-run-outbound cmo1ws1vc2gwv0tbnrug12dwm tag:cmokj82xtqa6g0ti3f4gq0bfr`\n\n" +
+            "`7.` Watch live and pull scored results\n" +
+            "    `/hamming-run-status cmo367rl908xi0tg9jp7e8e0u`\n" +
+            "    `/hamming-run-results cmo367rl908xi0tg9jp7e8e0u`",
         },
       },
       { type: "context", elements: [{ type: "mrkdwn", text: "🔗 Docs: <https://docs.hamming.ai|docs.hamming.ai>" }] },
@@ -201,7 +226,7 @@ app.command("/hamming-run-outbound", async ({ command, ack, respond }) => {
               `\n` +
               `📞 *Your agent must call these numbers:*\n${numberLines}\n\n` +
               `${expiresLine}\n\n` +
-              (testRunId ? `_Use \`/hamming-status ${testRunId}\` to check progress._` : ""),
+              (testRunId ? `_Use \`/hamming-run-status ${testRunId}\` to check progress._` : ""),
           },
         },
         ...(testRunId
@@ -279,7 +304,7 @@ app.command("/hamming-run-inbound", async ({ command, ack, respond }) => {
                   ].filter(Boolean).join(" · ") + `\n`
                 : "") +
               `\n` +
-              (testRunId ? `_Use \`/hamming-status ${testRunId}\` to check progress._` : ""),
+              (testRunId ? `_Use \`/hamming-run-status ${testRunId}\` to check progress._` : ""),
           },
         },
         ...(testRunId
@@ -305,11 +330,11 @@ app.command("/hamming-run-inbound", async ({ command, ack, respond }) => {
   }
 });
 
-app.command("/hamming-status", async ({ command, ack, respond }) => {
+app.command("/hamming-run-status", async ({ command, ack, respond }) => {
   await ack();
   const testRunId = command.text.trim();
   if (!testRunId) {
-    return respond({ response_type: "ephemeral", text: "⚠️ Usage: `/hamming-status <testRunId>`" });
+    return respond({ response_type: "ephemeral", text: "⚠️ Usage: `/hamming-run-status <testRunId>`" });
   }
 
   try {
@@ -323,11 +348,11 @@ app.command("/hamming-status", async ({ command, ack, respond }) => {
   }
 });
 
-app.command("/hamming-results", async ({ command, ack, respond }) => {
+app.command("/hamming-run-results", async ({ command, ack, respond }) => {
   await ack();
   const testRunId = command.text.trim();
   if (!testRunId) {
-    return respond({ response_type: "ephemeral", text: "⚠️ Usage: `/hamming-results <testRunId>`" });
+    return respond({ response_type: "ephemeral", text: "⚠️ Usage: `/hamming-run-results <testRunId>`" });
   }
 
   await respond({
@@ -346,7 +371,7 @@ app.command("/hamming-results", async ({ command, ack, respond }) => {
   }
 });
 
-app.command("/hamming-datasets", async ({ command, ack, respond }) => {
+app.command("/hamming-cases", async ({ command, ack, respond }) => {
   await ack();
   const rawText = (command.text || "").trim();
   let searchTerm = "";
@@ -627,7 +652,7 @@ app.command("/hamming-generate-status", async ({ command, ack, respond }) => {
                   ? `*First ${Math.min(10, cases.length)}:*\n${preview}\n` +
                     (cases.length > 10 ? `_…and ${cases.length - 10} more_\n` : "")
                   : "") +
-                `\n_Cases are auto-associated with the agent. See all with:_ \`/hamming-datasets ${agentId}\``,
+                `\n_Cases are auto-associated with the agent. See all with:_ \`/hamming-cases ${agentId}\``,
             },
           },
         ],

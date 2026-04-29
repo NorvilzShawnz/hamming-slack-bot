@@ -296,7 +296,7 @@ function formatTestCases(testCases, { searchTerm = "", total, agentId } = {}) {
       elements: [
         {
           type: "mrkdwn",
-          text: `_Showing ${DISPLAY} of ${filtered.length}. Narrow with_ \`/hamming-datasets --search=<term>\`.`,
+          text: `_Showing ${DISPLAY} of ${filtered.length}. Narrow with_ \`/hamming-cases --search=<term>\`.`,
         },
       ],
     });

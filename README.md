@@ -13,16 +13,16 @@ Each selection token in a run command is either a `testCaseId` or `tag:<tagId>` 
 | `/hamming-help` | Show all available commands with usage and examples |
 | `/hamming-run-outbound <agentId> <selection[,selection,...]> [--samples=N] [--concurrency=N]` | Start an outbound test. Hamming returns temporary numbers your agent must dial before expiry. |
 | `/hamming-run-inbound <agentId> <selection[,selection,...]> <phoneNumber[,phoneNumber,...]> [--samples=N] [--concurrency=N]` | Start an inbound test. Hamming dials the phone number(s) attached to your agent. |
-| `/hamming-status <testRunId>` | Quick status card: state, timestamps, pass/fail counts |
-| `/hamming-results <testRunId>` | Full breakdown: per-case outcome + failed-check reasons, latency metrics, guardrail categories, top issues |
+| `/hamming-run-status <testRunId>` | Quick status card: state, timestamps, pass/fail counts |
+| `/hamming-run-results <testRunId>` | Full breakdown: per-case outcome + failed-check reasons, latency metrics, guardrail categories, top issues |
 | `/hamming-agents [searchTerm]` | List voice agents in your workspace. Optional search uses **token-AND matching** over name/ID — every word in the query must appear somewhere in the agent's name or ID (any order, punctuation-agnostic). So `mary outbound` matches `Mary: Outbound: Version 35` even though a colon sits between the words. |
 | `/hamming-tags` | List **all** workspace tags with per-tag case counts. |
 | `/hamming-tags --search=<term>` | List workspace tags whose **name** contains `<term>`. The search value consumes everything after `=` to end of line, so phrases like `--search=agent greeting` work. |
 | `/hamming-tags <agentId>` | List only the tags attached to one specific agent. |
-| `/hamming-datasets` | List test cases, with the workspace total count. |
-| `/hamming-datasets <agentId>` | List only the cases associated with that agent. |
-| `/hamming-datasets --search=<term>` | Search test cases by **name** (server-side search then client-side name filter; multi-word phrases supported). |
-| `/hamming-datasets <agentId> --search=<term>` | Combine agent filter with name search. |
+| `/hamming-cases` | List test cases, with the workspace total count. |
+| `/hamming-cases <agentId>` | List only the cases associated with that agent. |
+| `/hamming-cases --search=<term>` | Search test cases by **name** (server-side search then client-side name filter; multi-word phrases supported). |
+| `/hamming-cases <agentId> --search=<term>` | Combine agent filter with name search. |
 | `/hamming-tag-create <name> [--description=<desc>]` | Create a new workspace tag. Returns the new tag's ID. |
 | `/hamming-tag-attach <tagId> <caseId1,caseId2,...>` | Attach a tag to one or more test cases (comma-separated, no spaces). ⚠️ For the tag to actually run against an agent, the cases you attach must belong to that agent (`agentIds`). The simplest path is `/hamming-case-generate <agentId>` first — those cases are auto-associated. |
 | `/hamming-case-generate <agentId> [--count=N] [--instructions=<text>]` | Start an async AI job that generates test cases for an agent. Typically 1–5 min. Generated cases are auto-associated with the agent. Returns a job ID. |
@@ -69,11 +69,11 @@ Go to **Slash Commands** → **Create New Command** for each of the following:
 | `/hamming-help` | Show help |
 | `/hamming-run-outbound` | Start an outbound voice test |
 | `/hamming-run-inbound` | Start an inbound voice test |
-| `/hamming-status` | Check test run status |
-| `/hamming-results` | Get detailed test run results |
+| `/hamming-run-status` | Check test run status |
+| `/hamming-run-results` | Get detailed test run results |
 | `/hamming-agents` | List voice agents |
 | `/hamming-tags` | List tags attached to an agent |
-| `/hamming-datasets` | List test cases |
+| `/hamming-cases` | List test cases |
 | `/hamming-tag-create` | Create a new workspace tag |
 | `/hamming-tag-attach` | Attach a tag to one or more test cases |
 | `/hamming-case-generate` | Start an AI test-case generation job for an agent |
@@ -142,15 +142,14 @@ railway up
 **Render:**
 - Connect your GitHub repo, set it as a Web Service, add environment variables, and deploy.
 
-**Docker:**
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY src ./src
-CMD ["node", "src/index.js"]
+**Docker:** A `Dockerfile` (and `.dockerignore`) is already in the repo, so you can just:
+
+```bash
+docker build -t hamming-slack-bot .
+docker run -d --env-file .env --name hammy hamming-slack-bot
 ```
+
+The image is `node:18-alpine`-based and runs `node src/index.js` as `CMD`. Pair with any container host (Fly.io free tier works well for Socket Mode bots since they only need outbound network).
 
 ---
 
@@ -175,16 +174,16 @@ CMD ["node", "src/index.js"]
 /hamming-tags cmo1ws1vc2gwv0tbnrug12dwm
 
 # Browse test cases (shows workspace total)
-/hamming-datasets
+/hamming-cases
 
 # List only the cases associated with one agent
-/hamming-datasets cmo1ws1vc2gwv0tbnrug12dwm
+/hamming-cases cmo1ws1vc2gwv0tbnrug12dwm
 
 # Search test cases by name
-/hamming-datasets --search=appointment confirmation
+/hamming-cases --search=appointment confirmation
 
 # Agent filter and name search combined
-/hamming-datasets cmo1ws1vc2gwv0tbnrug12dwm --search=appointment confirmation
+/hamming-cases cmo1ws1vc2gwv0tbnrug12dwm --search=appointment confirmation
 
 # Create a new tag, then attach cases to it
 /hamming-tag-create smoke-tests --description=Quick sanity checks
@@ -209,8 +208,8 @@ CMD ["node", "src/index.js"]
 /hamming-run-outbound cmo1ws1vc2gwv0tbnrug12dwm tag:cmguyd80z0fokgc1c859g08q7 --samples=10 --concurrency=25
 
 # Check status / pull results
-/hamming-status cmo367rl908xi0tg9jp7e8e0u
-/hamming-results cmo367rl908xi0tg9jp7e8e0u
+/hamming-run-status cmo367rl908xi0tg9jp7e8e0u
+/hamming-run-results cmo367rl908xi0tg9jp7e8e0u
 ```
 
 ---
@@ -224,8 +223,12 @@ hamming-slack-bot/
 │   ├── hamming.js     # Hamming REST API client
 │   └── formatters.js  # Block Kit message formatters
 ├── .env.example       # Environment variable template
+├── .gitignore
+├── .dockerignore
+├── Dockerfile         # Ready-to-build container (FROM node:18-alpine)
 ├── package.json
-└── README.md
+├── README.md
+└── WALKTHROUGH.md     # Narrative quickstart + per-step explanation
 ```
 
 ---
@@ -246,7 +249,7 @@ The bot uses Hamming's public REST API (`https://app.hamming.ai/api/rest`). Endp
 - `POST /test-cases/generate` — Start an async AI generation job. Body: `{ customerVoiceAgentId, maxTestCases?, generationInstructions? }`. Returns a job ID. Used by `/hamming-case-generate`.
 - `GET /test-cases/generate/{jobId}/status?customerVoiceAgentId=...` — Poll job status. Returns `PENDING` / `IN_PROGRESS` / `COMPLETED` / `FAILED` and a `currentStep` counter during `IN_PROGRESS`.
 - `GET /test-cases/generate/{jobId}/result?customerVoiceAgentId=...` — Fetch generated cases once `COMPLETED` (returns 400 otherwise). Used by `/hamming-generate-status` after it sees `COMPLETED`.
-- `GET /test-cases` — List test cases (supports `search`, `limit` max 500, `offset`, plus `total` in response). Used by `/hamming-datasets` — server search narrows the candidate set, then a client-side name filter strips description matches, same rationale as `/test-tags`.
+- `GET /test-cases` — List test cases (supports `search`, `limit` max 500, `offset`, plus `total` in response). Used by `/hamming-cases` — server search narrows the candidate set, then a client-side name filter strips description matches, same rationale as `/test-tags`.
 
 Both run endpoints accept `testConfigurations[]` where each item selects by either `testCaseId` or `tagId`. Optional load-test parameters are `samplingCount` (1–50) and `maxConcurrentCalls` (1–100, default 10).
 
@@ -259,7 +262,7 @@ Both run endpoints accept `testConfigurations[]` where each item selects by eith
 | `HAMMING_API_KEY is not set` | Check your `.env` file |
 | `Hamming API error (401)` | Your API key is wrong or expired — regenerate at hamming.ai/settings |
 | `Hamming API error (404)` | The `agentId`, `testCaseId`, `tagId`, or `testRunId` doesn't exist |
-| `Hamming API error (400): Requested run selection resolved to no runnable test cases` | The tag (or specific cases) you're running aren't associated with the target agent. Test cases have an `agentIds` field; runs only resolve cases whose `agentIds` includes the agent in your run command. **Easiest fix:** use `/hamming-case-generate <agentId>` — generated cases are auto-associated with the agent. Otherwise verify the cases belong to your agent first via `/hamming-datasets <agentId>` before attaching them to the tag. |
+| `Hamming API error (400): Requested run selection resolved to no runnable test cases` | The tag (or specific cases) you're running aren't associated with the target agent. Test cases have an `agentIds` field; runs only resolve cases whose `agentIds` includes the agent in your run command. **Easiest fix:** use `/hamming-case-generate <agentId>` — generated cases are auto-associated with the agent. Otherwise verify the cases belong to your agent first via `/hamming-cases <agentId>` before attaching them to the tag. |
 | Outbound test completes after 60 min with no calls placed | Your agent never dialed the `assignedNumbers` before they expired (~10 min). The "Test Run Started!" card lists the numbers and expiry — your agent has to place those calls. |
 | Slash commands not appearing | Make sure all commands are registered in api.slack.com and the app is reinstalled |
 | Each slash command appears twice in autocomplete | Check **Slash Commands** in api.slack.com for duplicate entries, and check that only one copy of the app is installed in your workspace |
