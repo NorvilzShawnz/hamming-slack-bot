@@ -143,13 +143,27 @@ Creates a workspace tag. The response includes the new tag's ID.
 /hamming-tag-attach <tagId> <caseId1,caseId2,...>
 ```
 
-Attaches the tag to one or more existing test cases (comma-separated, no spaces). Once attached, `/hamming-run-outbound <agentId> tag:<tagId>` will run every case under that tag.
+Attaches the tag to one or more existing test cases (comma-separated, no spaces). Once attached, `/hamming-run-outbound <agentId> tag:<tagId>` will run every case under that tag — *as long as those cases belong to that agent*. See the "agent compatibility" note below.
 
-Typical flow:
+> **⚠️ Agent compatibility, important:** Tags are workspace-scoped, but every test case is associated with one or more specific agents (its `agentIds`). When you run `tag:<tagId>` for a given agent, Hamming only resolves the cases in that tag whose `agentIds` includes the agent you're running. If none of the tag's cases belong to that agent, you'll get:
+>
+> `Hamming API error (400): Requested run selection resolved to no runnable test cases`
+>
+> The simplest way to avoid this is the AI-generation path below — generated cases are *automatically* associated with the agent you specify. If you'd rather attach existing cases manually, first verify they belong to your target agent with `/hamming-datasets <agentId>` and only attach IDs you see in that list.
 
-1. `/hamming-datasets <agentId> --search=<topic>` — find cases you want to group
+**Recommended (easier) flow — let the AI generate cases for the agent first:**
+
+1. `/hamming-tag-create <name>` — create the tag
+2. `/hamming-case-generate <agentId> --count=N --instructions=<focus>` — AI generates cases, *auto-associated with that agent* (see next section)
+3. `/hamming-generate-status <jobId> <agentId>` — copy the new case IDs once it completes
+4. `/hamming-tag-attach <tagId> <caseIds>` — attach the cases to the tag
+5. `/hamming-run-outbound <agentId> tag:<tagId>` — run them
+
+**Manual flow — only if you already have specific cases in mind:**
+
+1. `/hamming-datasets <agentId> --search=<topic>` — find cases that already belong to your agent
 2. `/hamming-tag-create <name>` — create the tag
-3. `/hamming-tag-attach <tagId> <caseIds>` — attach the cases from step 1
+3. `/hamming-tag-attach <tagId> <caseIds>` — attach the cases from step 1 (must come from the same agent's list)
 4. `/hamming-run-outbound <agentId> tag:<tagId>` — run them
 
 ---
@@ -179,6 +193,7 @@ On failure, the status response surfaces Hamming's error message — usually eno
 ## Common first-run gotchas
 
 - Outbound run "completed" after an hour with zero calls — your agent didn't dial the assigned numbers within the 10-minute window. That's on your agent, not Hamming.
+- `Hamming API error (400): Requested run selection resolved to no runnable test cases` — the tag (or individual cases) you're running don't belong to the agent in your run command. Either run against the right agent, or attach cases that already belong to the target agent (or use `/hamming-case-generate` so they're auto-associated). See the "agent compatibility" note in *Creating tags from Slack* above.
 - `Hamming API error (404)` — one of your IDs (agent, case, tag, or run) is wrong. Re-verify with `/hamming-agents` or `/hamming-tags`.
 - Spaces in a comma list — `tag:abc, tag:def` breaks the parser. Use `tag:abc,tag:def` with no spaces.
 - `dispatch_failed` in Slack — the bot server isn't running.

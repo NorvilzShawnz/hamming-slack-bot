@@ -24,7 +24,7 @@ Each selection token in a run command is either a `testCaseId` or `tag:<tagId>` 
 | `/hamming-datasets --search=<term>` | Search test cases by **name** (server-side search then client-side name filter; multi-word phrases supported). |
 | `/hamming-datasets <agentId> --search=<term>` | Combine agent filter with name search. |
 | `/hamming-tag-create <name> [--description=<desc>]` | Create a new workspace tag. Returns the new tag's ID. |
-| `/hamming-tag-attach <tagId> <caseId1,caseId2,...>` | Attach a tag to one or more test cases (comma-separated, no spaces). |
+| `/hamming-tag-attach <tagId> <caseId1,caseId2,...>` | Attach a tag to one or more test cases (comma-separated, no spaces). ⚠️ For the tag to actually run against an agent, the cases you attach must belong to that agent (`agentIds`). The simplest path is `/hamming-case-generate <agentId>` first — those cases are auto-associated. |
 | `/hamming-case-generate <agentId> [--count=N] [--instructions=<text>]` | Start an async AI job that generates test cases for an agent. Typically 1–5 min. Generated cases are auto-associated with the agent. Returns a job ID. |
 | `/hamming-generate-status <jobId> <agentId>` | Poll generation progress. On `COMPLETED` the same command also fetches and previews the generated cases. Both IDs are required — Hamming ties jobs to the agent they were started for. |
 
@@ -259,6 +259,7 @@ Both run endpoints accept `testConfigurations[]` where each item selects by eith
 | `HAMMING_API_KEY is not set` | Check your `.env` file |
 | `Hamming API error (401)` | Your API key is wrong or expired — regenerate at hamming.ai/settings |
 | `Hamming API error (404)` | The `agentId`, `testCaseId`, `tagId`, or `testRunId` doesn't exist |
+| `Hamming API error (400): Requested run selection resolved to no runnable test cases` | The tag (or specific cases) you're running aren't associated with the target agent. Test cases have an `agentIds` field; runs only resolve cases whose `agentIds` includes the agent in your run command. **Easiest fix:** use `/hamming-case-generate <agentId>` — generated cases are auto-associated with the agent. Otherwise verify the cases belong to your agent first via `/hamming-datasets <agentId>` before attaching them to the tag. |
 | Outbound test completes after 60 min with no calls placed | Your agent never dialed the `assignedNumbers` before they expired (~10 min). The "Test Run Started!" card lists the numbers and expiry — your agent has to place those calls. |
 | Slash commands not appearing | Make sure all commands are registered in api.slack.com and the app is reinstalled |
 | Each slash command appears twice in autocomplete | Check **Slash Commands** in api.slack.com for duplicate entries, and check that only one copy of the app is installed in your workspace |
